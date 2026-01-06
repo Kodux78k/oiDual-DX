@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>InfoDose · Neural Deck</title>
+  <meta name="theme-color" content="#050811" />
+  
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap">
+
+  <style>
+    :root {
+      --bg-deep: #050811;
+      --surface: #0f1219;
+      --primary: #00f5ff;
+      --primary-glow: rgba(0, 245, 255, 0.3);
+      --secondary: #bd00ff;
+      --text: #e4ecff;
+      --muted: #4a5568;
+      --glass: rgba(255, 255, 255, 0.03);
+      --border: rgba(255, 255, 255, 0.08);
+      --danger: #ff4b6b;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      margin: 0; padding: 0;
+      background: var(--bg-deep);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      height: 100vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Ambient Nebula */
+    .nebula {
+      position: fixed; inset: 0;
+      background: 
+        radial-gradient(circle at 20% 30%, rgba(0, 245, 255, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(189, 0, 255, 0.05) 0%, transparent 40%);
+      z-index: -1; pointer-events: none;
+    }
+
+    /* Top Navigation */
+    .header {
+      padding: 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to bottom, var(--bg-deep), transparent);
+    }
+    .logo { font-weight: 800; font-size: 1.1rem; letter-spacing: -0.5px; }
+    .logo span { color: var(--primary); text-shadow: 0 0 10px var(--primary-glow); }
+    .status-bar { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--muted); }
+
+    /* Deck Layout */
+    .deck-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 20px 100px 20px;
+      scrollbar-width: none;
+    }
+    .deck-container::-webkit-scrollbar { display: none; }
+
+    /* Groups */
+    .group-section { margin-bottom: 30px; animation: fadeInUp 0.5s ease-out; }
+    .group-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 15px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .group-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+    .group-count { font-size: 0.6rem; background: var(--glass); padding: 2px 6px; border-radius: 4px; }
+
+    /* App Grid */
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+      gap: 20px;
+    }
+
+    /* Neural Card */
+    .neural-card {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      cursor: pointer; transition: transform 0.2s; position: relative;
+    }
+    .neural-card:active { transform: scale(0.92); }
+
+    .icon-wrapper {
+      width: 64px; height: 64px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+      transition: all 0.3s;
+    }
+    .neural-card:hover .icon-wrapper { border-color: var(--primary); background: rgba(255,255,255,0.06); box-shadow: 0 0 15px var(--primary-glow); }
+
+    .app-label {
+      font-size: 0.65rem; font-weight: 600; text-align: center;
+      width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      opacity: 0.7;
+    }
+
+    /* SVG Neural Icons */
+    .neural-icon { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-file { color: var(--secondary); }
+    .icon-url { color: var(--primary); }
+
+    /* FAB - Injetar */
+    .fab-inject {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: var(--primary); color: #000;
+      padding: 12px 24px; border-radius: 30px;
+      font-weight: 800; font-size: 0.85rem; letter-spacing: 0.5px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 10px 30px var(--primary-glow);
+      border: none; cursor: pointer; transition: 0.3s; z-index: 100;
+    }
+    .fab-inject:hover { transform: translateX(-50%) scale(1.05); filter: brightness(1.1); }
+
+    /* Modal / Injetor */
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+      display: flex; align-items: flex-end; justify-content: center;
+      opacity: 0; pointer-events: none; transition: 0.3s; z-index: 1000;
+    }
+    .modal.active { opacity: 1; pointer-events: auto; }
+    .modal-content {
+      width: 100%; max-width: 500px; background: var(--surface);
+      border-radius: 30px 30px 0 0; padding: 30px;
+      transform: translateY(100%); transition: 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+    }
+    .modal.active .modal-content { transform: translateY(0); }
+
+    .inject-option {
+      background: var(--glass); border: 1px solid var(--border);
+      padding: 20px; border-radius: 20px; margin-bottom: 15px;
+      display: flex; align-items: center; gap: 15px; cursor: pointer; transition: 0.2s;
+    }
+    .inject-option:hover { background: rgba(255,255,255,0.06); border-color: var(--primary); }
+    .inject-option svg { width: 24px; height: 24px; color: var(--primary); }
+    .inject-text h4 { margin: 0; font-size: 0.9rem; }
+    .inject-text p { margin: 5px 0 0 0; font-size: 0.7rem; color: var(--muted); }
+
+    /* Viewer */
+    .viewer {
+      position: fixed; inset: 0; background: #000; z-index: 2000;
+      display: flex; flex-direction: column; transform: scale(0.95); opacity: 0; pointer-events: none; transition: 0.3s;
+    }
+    .viewer.active { transform: scale(1); opacity: 1; pointer-events: auto; }
+    .viewer-header { height: 60px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #111; }
+    iframe { flex: 1; border: none; background: #fff; }
+
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+  <div class="nebula"></div>
+
+  <header class="header">
+    <div class="logo">INFODOSE <span>DECK</span></div>
+    <div class="status-bar" id="clock">00:00:00</div>
+  </header>
+
+  <main class="deck-container" id="deck">
+    <!-- Grupos serão injetados aqui -->
+  </main>
+
+  <button class="fab-inject" onclick="UI.toggleModal(true)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    INJETAR
+  </button>
+
+  <!-- MODAL DE INJEÇÃO -->
+  <div class="modal" id="modalInject" onclick="if(event.target===this) UI.toggleModal(false)">
+    <div class="modal-content">
+      <h2 style="margin-top:0; font-size: 1.2rem;">O que deseja injetar?</h2>
+      
+      <div class="inject-option" onclick="document.getElementById('fileIn').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+        <div class="inject-text">
+          <h4>Arquivo Local</h4>
+          <p>Importar módulo .html isolado</p>
+        </div>
+        <input type="file" id="fileIn" hidden accept=".html" onchange="Engine.handleFile(this)">
+      </div>
+
+      <div class="inject-option" onclick="UI.promptUrl()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+        <div class="inject-text">
+          <h4>Link Neural (URL)</h4>
+          <p>Conectar ferramenta baseada em nuvem</p>
+        </div>
+      </div>
+
+      <button style="width:100%; padding:15px; border-radius:15px; border:none; background:var(--glass); color:var(--text); font-weight:700; cursor:pointer;" onclick="UI.toggleModal(false)">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- VIEWER -->
+  <div class="viewer" id="viewer">
+    <div class="viewer-header">
+      <span id="viewTitle" style="font-weight:700; font-size:0.8rem; color:var(--primary)">RUNNING MODULE</span>
+      <button onclick="UI.toggleViewer(false)" style="background:var(--glass); border:none; color:white; width:35px; height:35px; border-radius:50%; cursor:pointer;">✕</button>
+    </div>
+    <iframe id="appFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
+  </div>
+
+  <script>
+    /* Dicionário de Ícones SVG Neurais 
+       Em vez de emojis, usamos ícones que se adaptam ao tema.
+    */
+    const Icons = {
+      file: `<svg class="neural-icon icon-file" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>`,
+      url: `<svg class="neural-icon icon-url" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+      tool: `<svg class="neural-icon" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`
+    };
+
+    const DB_NAME = 'InfoDoseNeuralDB';
+    const STORE = 'modules';
+
+    const Engine = {
+      db: null,
+      async init() {
+        return new Promise((resolve) => {
+          const req = indexedDB.open(DB_NAME, 2);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE)) {
+              db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+            }
+          };
+          req.onsuccess = (e) => { this.db = e.target.result; this.load(); resolve(); };
+        });
+      },
+
+      async handleFile(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const text = await file.text();
+        this.save({
+          title: file.name.replace('.html', ''),
+          type: 'file',
+          content: text,
+          group: 'IMPORTADOS'
+        });
+      },
+
+      save(app) {
+        const tx = this.db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).add({ ...app, timestamp: Date.now() });
+        tx.oncomplete = () => { UI.toggleModal(false); this.load(); };
+      },
+
+      load() {
+        const tx = this.db.transaction(STORE, 'readonly');
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = () => UI.render(req.result);
+      },
+
+      delete(id) {
+        if(!confirm("Desintegrar este módulo?")) return;
+        const tx = this.db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(id);
+        tx.oncomplete = () => this.load();
+      },
+
+      launch(id) {
+        const tx = this.db.transaction(STORE, 'readonly');
+        tx.objectStore(STORE).get(id).onsuccess = (e) => {
+          const app = e.target.result;
+          const url = app.type === 'file' ? URL.createObjectURL(new Blob([app.content], {type:'text/html'})) : app.content;
+          UI.openApp(app.title, url);
+        };
+      }
+    };
+
+    const UI = {
+      render(apps) {
+        const deck = document.getElementById('deck');
+        deck.innerHTML = '';
+
+        // Lógica de Agrupamento
+        const groups = {};
+        apps.forEach(app => {
+          const g = app.group || 'GERAL';
+          if (!groups[g]) groups[g] = [];
+          groups[g].push(app);
+        });
+
+        if (apps.length === 0) {
+          deck.innerHTML = `<div style="text-align:center; padding:100px 0; opacity:0.2;"><h3>DECK VAZIO</h3><p>Aguardando injeção neural...</p></div>`;
+          return;
+        }
+
+        for (const [name, items] of Object.entries(groups)) {
+          const section = document.createElement('div');
+          section.className = 'group-section';
+          section.innerHTML = `
+            <div class="group-header">
+              <span class="group-title">${name}</span>
+              <span class="group-count">${items.length}</span>
+            </div>
+            <div class="app-grid" id="grid-${name}"></div>
+          `;
+          deck.appendChild(section);
+          
+          const grid = section.querySelector('.app-grid');
+          items.forEach(app => {
+            const card = document.createElement('div');
+            card.className = 'neural-card';
+            card.innerHTML = `
+              <div class="icon-wrapper">${Icons[app.type] || Icons.tool}</div>
+              <div class="app-label">${app.title}</div>
+            `;
+            card.onclick = () => Engine.launch(app.id);
+            // Long press para deletar
+            let timer;
+            card.onmousedown = card.ontouchstart = () => timer = setTimeout(() => Engine.delete(app.id), 800);
+            card.onmouseup = card.ontouchend = () => clearTimeout(timer);
+            grid.appendChild(card);
+          });
+        }
+      },
+
+      toggleModal(show) {
+        document.getElementById('modalInject').classList.toggle('active', show);
+      },
+
+      promptUrl() {
+        const url = prompt("Cole a URL do módulo:");
+        if (url) {
+          const name = prompt("Nome do Módulo:", "Novo Link");
+          Engine.save({ title: name, type: 'url', content: url, group: 'WEB' });
+        }
+      },
+
+      openApp(title, url) {
+        document.getElementById('viewTitle').textContent = title.toUpperCase();
+        document.getElementById('appFrame').src = url;
+        document.getElementById('viewer').classList.add('active');
+      },
+
+      toggleViewer(show) {
+        const v = document.getElementById('viewer');
+        v.classList.toggle('active', show);
+        if(!show) document.getElementById('appFrame').src = 'about:blank';
+      }
+    };
+
+    // Relógio Minimalista
+    setInterval(() => {
+      document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR', {hour12:false});
+    }, 1000);
+
+    window.onload = () => Engine.init();
+  </script>
+</body>
+</html>
+
